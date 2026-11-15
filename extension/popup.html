@@ -13,6 +13,9 @@
     .actions { display: flex; gap: 8px; margin-top: 10px; }
     .actions button { flex: 1; }
     .statuses { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); display: grid; gap: 4px; }
+    #startServer, #stopServer { margin: 4px 0 2px; }
+    #startHint { margin: 0; }
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body>
@@ -47,6 +50,9 @@
 
   <div class="statuses">
     <div class="status"><span class="dot" id="serverDot"></span><span id="serverText">檢查本機伺服器…</span></div>
+    <button id="startServer" class="primary" hidden>啟動本機伺服器</button>
+    <button id="stopServer" hidden>關閉本機伺服器</button>
+    <p class="hint" id="startHint" hidden></p>
     <div class="status"><span class="dot" id="ollamaDot"></span><span id="ollamaText">檢查 Ollama…</span></div>
   </div>
 

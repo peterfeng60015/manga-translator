@@ -2,27 +2,58 @@
   "manifest_version": 3,
   "name": "本機漫畫翻譯",
   "description": "把網頁上的漫畫圖片送到本機伺服器做文字偵測、OCR 與翻譯，再把譯文蓋回圖上。",
-  "version": "0.1.0",
-  "icons": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" },
-  "action": { "default_popup": "popup.html", "default_title": "本機漫畫翻譯" },
+  "version": "0.2.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqrAxa5kFpfMWIF/U0qr4YDsx1cCokN5NRctgf2At+OiLCSlsbAQV+I92iIUozNKaodKHt5fBNoawv2dAhaEIE+8ZOAZOg9oPhOKYwjVHCrdRjKIDOtr5LbkBI0k8r0ocn6huRPj9W4nKH4ZPscGyZm0/LN7la5ARRvkPH9rugufx4hejM6ORIc5VDWsBiFgjG9EIVTda/fbbreXmb/HV++wQ0MuPoniDadXw8Unu7pNmrO6r0auduFONVQ3fJMkwXPOKBEskwcLGQsAPxHBx3p1HyosTq2fmsmkme28jUzFVb6pCtHvsWDde03HpxDrg1tWhS2VQxjNbfMd4RYmYmwIDAQAB",
+  "icons": {
+    "16": "icons/16.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "本機漫畫翻譯"
+  },
   "options_page": "options.html",
-  "background": { "service_worker": "background.js" },
-  "permissions": ["storage", "contextMenus", "scripting", "activeTab", "tabs"],
-  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "storage",
+    "contextMenus",
+    "scripting",
+    "activeTab",
+    "tabs",
+    "nativeMessaging"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*", "file:///*"],
-      "js": ["defaults.js", "typeset.js", "content.js"],
+      "matches": [
+        "http://*/*",
+        "https://*/*",
+        "file:///*"
+      ],
+      "js": [
+        "defaults.js",
+        "typeset.js",
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
   "commands": {
     "toggle-page": {
-      "suggested_key": { "default": "Alt+T" },
+      "suggested_key": {
+        "default": "Alt+T"
+      },
       "description": "開啟或關閉此頁的漫畫翻譯"
     },
     "screenshot": {
-      "suggested_key": { "default": "Alt+S" },
+      "suggested_key": {
+        "default": "Alt+S"
+      },
       "description": "截圖模式：框選一塊區域來翻譯"
     }
   }

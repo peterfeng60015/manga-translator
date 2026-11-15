@@ -9,6 +9,7 @@ import base64
 import hashlib
 import io
 import json
+import threading
 from collections import OrderedDict
 
 import httpx
@@ -84,7 +85,18 @@ async def load_image(req: TranslateRequest) -> bytes:
     raise HTTPException(400, "需要 image 或 url")
 
 
+# Requests run in worker threads, and the extension sends two pictures at once. Creating or
+# running DirectML sessions from two threads at the same time crashes the process inside the
+# GPU driver (access violation, no Python traceback), so all model work goes through one lock.
+_gpu_lock = threading.Lock()
+
+
 def analyse(raw: bytes, src: str) -> dict:
+    with _gpu_lock:
+        return _analyse(raw, src)
+
+
+def _analyse(raw: bytes, src: str) -> dict:
     """Blocking part: decode, detect, OCR. Runs in a worker thread."""
     try:
         img = Image.open(io.BytesIO(raw))
@@ -204,5 +216,26 @@ async def health(ollama_url: str = "http://127.0.0.1:11434"):
 
 
 if __name__ == "__main__":
-    print(f"manga-translator server  http://{HOST}:{PORT}   (Ctrl+C 結束)")
-    uvicorn.run(app, host=HOST, port=PORT, log_level="warning")
+    import os
+    import sys
+    from pathlib import Path
+
+    # --log FILE: started in the background by the extension, so write output to a file.
+    if "--log" in sys.argv[1:-1]:
+        stream = open(sys.argv[sys.argv.index("--log") + 1], "a", encoding="utf-8", buffering=1)
+        sys.stdout = sys.stderr = stream
+    # Native crashes (e.g. in the GPU driver) kill the process without a Python traceback;
+    # this at least writes the Python stack of every thread to the log.
+    import faulthandler
+
+    faulthandler.enable(file=sys.stderr, all_threads=True)
+
+    # Lets the extension's "stop server" button find this process.
+    pid_file = Path(__file__).with_name("server.pid")
+    pid_file.write_text(str(os.getpid()))
+    print(f"manga-translator server  http://{HOST}:{PORT}   (Ctrl+C 結束)", flush=True)
+    try:
+        uvicorn.run(app, host=HOST, port=PORT, log_level="warning")
+    finally:
+        if pid_file.read_text().strip() == str(os.getpid()):
+            pid_file.unlink(missing_ok=True)

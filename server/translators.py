@@ -71,7 +71,27 @@ async def ollama(texts: list[str], src: str, tgt: str, url: str, model: str) -> 
     )
     if tgt == "zh-TW":
         system += " Write in Traditional Chinese characters (繁體字) with Taiwan wording; never use Simplified characters."
-    user = json.dumps({"lines": [texts[i] for i in idx]}, ensure_ascii=False)
+    lines = [texts[i] for i in idx]
+    async with httpx.AsyncClient(timeout=180) as client:
+        out = await _ollama_chat(client, url, model, system, lines)
+        if len(out) != len(lines):
+            # Small models sometimes merge or split lines. Fall back to one line per request,
+            # still showing the whole page as context so the tone stays consistent.
+            page = "\n".join(lines)
+            out = []
+            for line in lines:
+                one = await _ollama_chat(client, url, model, system, [line], context=page)
+                out.append(" ".join(one))
+    result = [""] * len(texts)
+    for i, t in zip(idx, out):
+        result[i] = _to_traditional(str(t).strip()) if tgt == "zh-TW" else str(t).strip()
+    return result
+
+
+async def _ollama_chat(client, url, model, system, lines, context=None) -> list[str]:
+    payload = {"lines": lines}
+    if context:
+        payload = {"page_for_context_only": context, "lines": lines}
     body = {
         "model": model,
         "stream": False,
@@ -82,14 +102,16 @@ async def ollama(texts: list[str], src: str, tgt: str, url: str, model: str) -> 
             "required": ["translations"],
         },
         "options": {"temperature": 0.2},
-        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+        ],
     }
     try:
-        async with httpx.AsyncClient(timeout=180) as client:
+        r = await client.post(url.rstrip("/") + "/api/chat", json=body)
+        if r.status_code == 400 and "think" in r.text:
+            body.pop("think")  # model without a thinking switch
             r = await client.post(url.rstrip("/") + "/api/chat", json=body)
-            if r.status_code == 400 and "think" in r.text:
-                body.pop("think")  # model without a thinking switch
-                r = await client.post(url.rstrip("/") + "/api/chat", json=body)
     except httpx.HTTPError as e:
         raise TranslateError(f"連不上 Ollama（{url}），請確認 Ollama 已啟動: {e}") from e
     if r.status_code == 404:
@@ -102,12 +124,7 @@ async def ollama(texts: list[str], src: str, tgt: str, url: str, model: str) -> 
         out = json.loads(content)["translations"]
     except Exception as e:
         raise TranslateError(f"Ollama 回傳的不是預期的 JSON: {content[:200]}") from e
-    if len(out) != len(idx):
-        raise TranslateError(f"Ollama 回傳 {len(out)} 句，但送出 {len(idx)} 句")
-    result = [""] * len(texts)
-    for i, t in zip(idx, out):
-        result[i] = _to_traditional(str(t).strip()) if tgt == "zh-TW" else str(t).strip()
-    return result
+    return [str(t) for t in out]
 
 
 _s2tw = None

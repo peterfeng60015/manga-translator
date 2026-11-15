@@ -121,7 +121,10 @@
     } catch (e) {
       rec.status = 'error';
       if (e.code === 'offline') {
-        queue.length = 0; // no point hammering a server that is not running
+        // No point hammering a server that is not running. Switch the page off so that pressing
+        // "翻譯此頁" again after starting the server retries every picture.
+        if (enabled) stop(true);
+        else records.delete(img);
         toast(e.message, 'error');
       } else {
         toast(`翻譯失敗：${e.message}`, 'error');
@@ -198,14 +201,14 @@
     if (!document.querySelector('img')) toast('這一頁沒有找到圖片；若漫畫是畫在 canvas 上，請改用截圖模式', 'info');
   }
 
-  function stop() {
+  function stop(quiet = false) {
     enabled = false;
     io?.disconnect();
     mo?.disconnect();
     queue.length = 0;
     [...tracked].forEach(restore);
     document.querySelectorAll('img').forEach((img) => { if (records.get(img)?.status !== 'working') records.delete(img); });
-    toast('已還原原圖', 'ok');
+    if (!quiet) toast('已還原原圖', 'ok');
   }
 
   // ---- screenshot mode -----------------------------------------------------

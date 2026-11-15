@@ -5,9 +5,15 @@ Chrome 插件 + 本機 Python 伺服器。插件把網頁上的漫畫圖片送�
 
 ## 使用
 
-1. 執行 `start-server.bat`（第一次會自動建立 venv 並安裝套件），視窗開著不要關。
-2. Chrome 開 `chrome://extensions` → 開啟「開發人員模式」→「載入未封裝項目」→ 選 `extension` 資料夾。
+1. Chrome 開 `chrome://extensions` → 開啟「開發人員模式」→「載入未封裝項目」→ 選 `extension` 資料夾。
+2. 在檔案總管**雙擊**執行一次 `install-native-host.bat`（只寫入目前使用者的登錄檔），之後彈出視窗就能用「啟動／關閉本機伺服器」按鈕控制伺服器。
+   從按鈕啟動時伺服器在背景執行、不開視窗，輸出寫在 `server/server.log`；只有第一次還沒建立 venv 時會開視窗顯示安裝進度。
+   不要從 Claude 桌面版等 MSIX 封裝 App 內的終端機執行：那裡寫入的登錄檔會被導到 App 的私有登錄檔，Chrome 看不到。
+   不想註冊的話，也可以每次手動執行 `start-server.bat`（第一次會自動建立 venv 並安裝套件），視窗開著不要關。
 3. 開漫畫頁面，點插件圖示 →「翻譯此頁」。
+
+插件 ID 由 `manifest.json` 的 `key` 固定為 `ljcafbkmjchhgelhikfepgmeanecocle`，Native Messaging 的註冊依賴這個 ID。
+移除註冊請執行 `uninstall-native-host.bat`。
 
 | 操作 | 方式 |
 | --- | --- |

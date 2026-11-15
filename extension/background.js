@@ -38,7 +38,7 @@ async function callServer(settings, payload) {
     });
   } catch (e) {
     clearInterval(keepAlive);
-    throw Object.assign(new Error('連不上本機伺服器，請先執行 start-server.bat'), { code: 'offline' });
+    throw Object.assign(new Error('連不上本機伺服器：請點插件圖示按「啟動本機伺服器」'), { code: 'offline' });
   }
   // The server streams whitespace while it works and reports failures inside the body.
   const body = await r.json().catch(() => ({})).finally(() => clearInterval(keepAlive));
@@ -74,6 +74,30 @@ async function health() {
   }
 }
 
+const NATIVE_HOST = 'com.local.manga_translator';
+
+// Starts or stops the server through the native messaging host registered by install-native-host.bat.
+async function serverControl(action) {
+  let res;
+  try {
+    res = await chrome.runtime.sendNativeMessage(NATIVE_HOST, { action });
+  } catch (e) {
+    const why = e?.message || String(e);
+    if (/not found/i.test(why)) {
+      throw Object.assign(
+        new Error(`找不到啟動程式：請先執行專案資料夾裡的 install-native-host.bat，再重新載入插件（Chrome：${why}）`),
+        { code: 'no-host' },
+      );
+    }
+    if (/forbidden/i.test(why)) {
+      throw new Error(`啟動程式不允許這個插件 ID（${chrome.runtime.id}）：請重新執行 install-native-host.bat（Chrome：${why}）`);
+    }
+    throw new Error(`啟動程式執行失敗：${why}`);
+  }
+  if (!res?.ok) throw new Error(res?.error || (action === 'stop' ? '關閉失敗' : '啟動失敗'));
+  return { status: res.status };
+}
+
 // Talk to the tab's content script, injecting it first if the tab predates the install.
 async function sendToTab(tabId, message) {
   try {
@@ -101,6 +125,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg.type === 'health') {
     reply(health().then((h) => ({ health: h })));
+    return true;
+  }
+  if (msg.type === 'startServer') {
+    reply(serverControl('start'));
+    return true;
+  }
+  if (msg.type === 'stopServer') {
+    reply(serverControl('stop'));
     return true;
   }
   if (msg.type === 'toTab') {

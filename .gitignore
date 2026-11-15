@@ -3,3 +3,7 @@ server/models/
 __pycache__/
 *.pyc
 test-output/
+native-host/com.local.manga_translator.json
+native-host/host.log
+server/server.log
+server/server.pid

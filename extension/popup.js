@@ -57,16 +57,66 @@ async function toTab(tabId, message) {
 
   $('options').addEventListener('click', (e) => { e.preventDefault(); chrome.runtime.openOptionsPage(); });
 
-  const { health } = await chrome.runtime.sendMessage({ type: 'health' });
-  $('serverDot').classList.add(health?.ok ? 'ok' : 'bad');
-  $('serverText').textContent = health?.ok
-    ? `本機伺服器已連線（${health.gpu ? 'GPU' : 'CPU'}）`
-    : '本機伺服器未啟動：請執行 start-server.bat';
-  const ol = health?.ollama;
-  const hasModel = ol?.models?.some((m) => m === settings.ollamaModel || m.startsWith(settings.ollamaModel + ':'));
-  $('ollamaDot').classList.add(ol?.running && hasModel ? 'ok' : 'bad');
-  $('ollamaText').textContent = !health?.ok ? 'Ollama：未知'
-    : !ol.running ? 'Ollama 未啟動'
-    : hasModel ? `Ollama 就緒（${settings.ollamaModel}）`
-    : `Ollama 缺少模型 ${settings.ollamaModel}`;
+  function showHealth(health) {
+    $('serverDot').className = 'dot ' + (health?.ok ? 'ok' : 'bad');
+    $('serverText').textContent = health?.ok
+      ? `本機伺服器已連線（${health.gpu ? 'GPU' : 'CPU'}）`
+      : '本機伺服器未啟動';
+    $('startServer').hidden = !!health?.ok;
+    $('stopServer').hidden = !health?.ok;
+    const ol = health?.ollama;
+    const hasModel = ol?.models?.some((m) => m === settings.ollamaModel || m.startsWith(settings.ollamaModel + ':'));
+    $('ollamaDot').className = 'dot ' + (ol?.running && hasModel ? 'ok' : 'bad');
+    $('ollamaText').textContent = !health?.ok ? 'Ollama：未知'
+      : !ol.running ? 'Ollama 未啟動'
+      : hasModel ? `Ollama 就緒（${settings.ollamaModel}）`
+      : `Ollama 缺少模型 ${settings.ollamaModel}`;
+  }
+
+  const getHealth = async () => (await chrome.runtime.sendMessage({ type: 'health' })).health;
+  showHealth(await getHealth());
+
+  // One control flow for both buttons: send the command, then wait until /health agrees.
+  async function control(kind) {
+    const start = kind === 'start';
+    const btn = $(start ? 'startServer' : 'stopServer'), hint = $('startHint');
+    const label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = start ? '啟動中…' : '關閉中…';
+    hint.hidden = true;
+    const done = () => { btn.disabled = false; btn.textContent = label; };
+    const res = await chrome.runtime.sendMessage({ type: start ? 'startServer' : 'stopServer' });
+    if (!res?.ok) {
+      done();
+      hint.textContent = res?.error || (start ? '啟動失敗' : '關閉失敗');
+      hint.hidden = false;
+      return;
+    }
+    if (start) {
+      hint.textContent = res.status === 'installing'
+        ? '第一次啟動：已開啟視窗安裝套件，需要數分鐘，完成後這裡會自動更新'
+        : '伺服器在背景啟動中…';
+      hint.hidden = false;
+    }
+    // The first run may still be installing packages, so allow a long wait when starting.
+    const deadline = Date.now() + (start ? 10 * 60 * 1000 : 15 * 1000);
+    while (Date.now() < deadline) {
+      const h = await getHealth();
+      if (!!h?.ok === start) {
+        showHealth(h);
+        hint.hidden = true;
+        done();
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+    done();
+    hint.textContent = start
+      ? '等候逾時，請查看 server\server.log 的錯誤訊息'
+      : '伺服器仍在回應，請再試一次';
+    hint.hidden = false;
+  }
+
+  $('startServer').addEventListener('click', () => control('start'));
+  $('stopServer').addEventListener('click', () => control('stop'));
 })();
