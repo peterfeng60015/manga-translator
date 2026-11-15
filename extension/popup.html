@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="ui.css">
+  <style>
+    body { width: 300px; padding: 14px; }
+    header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    #toggle { width: 100%; padding: 10px; font-size: 14px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0 4px; }
+    .grid label span { display: block; font-size: 12px; color: var(--muted); }
+    .grid select { width: 100%; }
+    .actions { display: flex; gap: 8px; margin-top: 10px; }
+    .actions button { flex: 1; }
+    .statuses { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); display: grid; gap: 4px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>本機漫畫翻譯</h1>
+    <a href="#" id="options" class="hint">設定</a>
+  </header>
+
+  <button id="toggle" class="primary">翻譯此頁</button>
+  <p class="hint" id="pageState"></p>
+
+  <label class="row">
+    <span>在這個網站自動翻譯</span>
+    <input type="checkbox" id="autoSite">
+  </label>
+
+  <div class="grid">
+    <label><span>原文</span><select id="sourceLang"></select></label>
+    <label><span>譯文</span><select id="targetLang"></select></label>
+  </div>
+  <label class="row">
+    <span>翻譯引擎</span>
+    <select id="engine">
+      <option value="google">Google 翻譯</option>
+      <option value="ollama">Ollama（本機 LLM）</option>
+    </select>
+  </label>
+
+  <div class="actions">
+    <button id="shot">截圖模式 <kbd>Alt+S</kbd></button>
+  </div>
+
+  <div class="statuses">
+    <div class="status"><span class="dot" id="serverDot"></span><span id="serverText">檢查本機伺服器…</span></div>
+    <div class="status"><span class="dot" id="ollamaDot"></span><span id="ollamaText">檢查 Ollama…</span></div>
+  </div>
+
+  <script src="defaults.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

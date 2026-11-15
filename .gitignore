@@ -1,0 +1,5 @@
+server/.venv/
+server/models/
+__pycache__/
+*.pyc
+test-output/

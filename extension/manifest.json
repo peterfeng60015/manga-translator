@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "本機漫畫翻譯",
+  "description": "把網頁上的漫畫圖片送到本機伺服器做文字偵測、OCR 與翻譯，再把譯文蓋回圖上。",
+  "version": "0.1.0",
+  "icons": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" },
+  "action": { "default_popup": "popup.html", "default_title": "本機漫畫翻譯" },
+  "options_page": "options.html",
+  "background": { "service_worker": "background.js" },
+  "permissions": ["storage", "contextMenus", "scripting", "activeTab", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*", "file:///*"],
+      "js": ["defaults.js", "typeset.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "commands": {
+    "toggle-page": {
+      "suggested_key": { "default": "Alt+T" },
+      "description": "開啟或關閉此頁的漫畫翻譯"
+    },
+    "screenshot": {
+      "suggested_key": { "default": "Alt+S" },
+      "description": "截圖模式：框選一塊區域來翻譯"
+    }
+  }
+}

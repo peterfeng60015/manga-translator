@@ -1,0 +1,8 @@
+onnxruntime-directml
+fastapi
+uvicorn[standard]
+pillow
+numpy
+httpx
+rapidocr
+opencc-python-reimplemented
