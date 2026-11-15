@@ -89,10 +89,10 @@ async function ollamaModels() {
 const NATIVE_HOST = 'com.local.manga_translator';
 
 // Starts or stops the server through the native messaging host registered by install-native-host.bat.
-async function serverControl(action) {
+async function serverControl(action, extra = {}) {
   let res;
   try {
-    res = await chrome.runtime.sendNativeMessage(NATIVE_HOST, { action });
+    res = await chrome.runtime.sendNativeMessage(NATIVE_HOST, { action, ...extra });
   } catch (e) {
     const why = e?.message || String(e);
     if (/not found/i.test(why)) {
@@ -107,7 +107,7 @@ async function serverControl(action) {
     throw new Error(`啟動程式執行失敗：${why}`);
   }
   if (!res?.ok) throw new Error(res?.error || (action === 'stop' ? '關閉失敗' : '啟動失敗'));
-  return { status: res.status };
+  return { status: res.status, unloaded: res.unloaded || [] };
 }
 
 // Talk to the tab's content script, injecting it first if the tab predates the install.
@@ -148,7 +148,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
   if (msg.type === 'stopServer') {
-    reply(serverControl('stop'));
+    // The native host also unloads Ollama's models: Ollama answers 403 to POSTs that carry a
+    // chrome-extension:// Origin, so the extension cannot do that itself.
+    reply(mtGetSettings().then((s) => serverControl('stop', { ollama_url: s.ollamaUrl })));
     return true;
   }
   if (msg.type === 'toTab') {

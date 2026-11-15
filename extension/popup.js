@@ -137,7 +137,11 @@ async function toTab(tabId, message) {
       const h = await getHealth();
       if (!!h?.ok === start) {
         showHealth(h);
-        hint.hidden = true;
+        const freed = !start && res.unloaded?.length
+          ? `已卸載 Ollama 模型，釋放顯示卡記憶體：${res.unloaded.map((n) => MT_KNOWN_MODELS[mtModelKey(n)] || mtModelKey(n)).join('、')}`
+          : '';
+        hint.textContent = freed;
+        hint.hidden = !freed;
         done();
         return;
       }
@@ -145,7 +149,7 @@ async function toTab(tabId, message) {
     }
     done();
     hint.textContent = start
-      ? '等候逾時，請查看 server\server.log 的錯誤訊息'
+      ? '等候逾時，請查看 server\\server.log 的錯誤訊息'
       : '伺服器仍在回應，請再試一次';
     hint.hidden = false;
   }

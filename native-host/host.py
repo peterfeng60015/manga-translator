@@ -145,6 +145,38 @@ def stop_server() -> dict:
     return {"ok": False, "error": "已送出關閉指令，但伺服器仍在回應"}
 
 
+def unload_ollama(base: str | None) -> list[str]:
+    """Ask Ollama to drop every loaded model now (it keeps them for 5 minutes by default).
+
+    Done here rather than in the extension because Ollama rejects POSTs whose Origin is
+    chrome-extension://. Returns only the models that are really gone afterwards.
+    """
+    import urllib.request
+
+    if not base or not base.startswith(("http://", "https://")):
+        return []
+    base = base.rstrip("/")
+
+    def loaded() -> list[str]:
+        with urllib.request.urlopen(base + "/api/ps", timeout=3) as r:
+            return [m["name"] for m in json.load(r).get("models", [])]
+
+    try:
+        names = loaded()
+        for name in names:
+            req = urllib.request.Request(
+                base + "/api/generate",
+                data=json.dumps({"model": name, "keep_alive": 0}).encode(),
+                headers={"Content-Type": "application/json"},
+            )
+            urllib.request.urlopen(req, timeout=15).read()
+        still = set(loaded())
+        return [n for n in names if n not in still]
+    except Exception as e:  # noqa: BLE001 - Ollama not running or refused: nothing to report
+        log(f"ollama unload failed: {e!r}")
+        return []
+
+
 def main():
     msg = read_message() or {}
     action = msg.get("action")
@@ -153,7 +185,9 @@ def main():
         if action == "start":
             send(start_server())
         elif action == "stop":
-            send(stop_server())
+            result = stop_server()
+            result["unloaded"] = unload_ollama(msg.get("ollama_url"))
+            send(result)
         elif action == "ping":
             send({"ok": True, "status": "running" if port_open() else "stopped"})
         else:
