@@ -74,6 +74,18 @@ async function health() {
   }
 }
 
+// Installed Ollama models: ask Ollama directly (works while the local server is off), else
+// fall back to the server's /health. Returns null when neither answers.
+async function ollamaModels() {
+  const settings = await mtGetSettings();
+  try {
+    const r = await fetch(settings.ollamaUrl.replace(/\/+$/, '') + '/api/tags', { signal: AbortSignal.timeout(3000) });
+    if (r.ok) return (await r.json()).models.map((m) => m.name);
+  } catch (e) { /* not reachable, or Ollama refused the extension origin */ }
+  const h = await health();
+  return h?.ok && h.ollama?.running ? h.ollama.models : null;
+}
+
 const NATIVE_HOST = 'com.local.manga_translator';
 
 // Starts or stops the server through the native messaging host registered by install-native-host.bat.
@@ -125,6 +137,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg.type === 'health') {
     reply(health().then((h) => ({ health: h })));
+    return true;
+  }
+  if (msg.type === 'ollamaModels') {
+    reply(ollamaModels().then((models) => ({ models })));
     return true;
   }
   if (msg.type === 'startServer') {

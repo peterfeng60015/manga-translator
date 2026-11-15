@@ -21,8 +21,42 @@ async function toTab(tabId, message) {
   fill($('targetLang'), MT_TARGET_LANGS);
   for (const key of ['sourceLang', 'targetLang', 'engine']) {
     $(key).value = settings[key];
-    $(key).addEventListener('change', () => chrome.storage.local.set({ [key]: $(key).value }));
+    $(key).addEventListener('change', () => {
+      settings[key] = $(key).value;
+      chrome.storage.local.set({ [key]: $(key).value });
+      updateModelUi();
+    });
   }
+
+  // ---- Ollama model picker -------------------------------------------------
+  let installed = null;
+  let lastHealth; // re-rendered once the model list arrives
+  function updateModelUi() {
+    $('modelRow').hidden = settings.engine !== 'ollama';
+    const hint = $('modelHint');
+    const m = settings.ollamaModel;
+    let msg = '';
+    if (settings.engine === 'ollama') {
+      if (installed && !installed.map(mtModelKey).includes(mtModelKey(m))) msg = `尚未安裝，請先執行 ollama pull ${m}`;
+      else if (/sakura/i.test(m) && (settings.sourceLang !== 'ja' || !settings.targetLang.startsWith('zh')))
+        msg = 'Sakura 只支援日文翻成中文，這個語言組合請改用 Qwen3.5';
+    }
+    hint.textContent = msg;
+    hint.hidden = !msg;
+  }
+  mtFillModels($('ollamaModel'), null, settings.ollamaModel);
+  $('ollamaModel').addEventListener('change', () => {
+    settings.ollamaModel = $('ollamaModel').value;
+    chrome.storage.local.set({ ollamaModel: settings.ollamaModel });
+    updateModelUi();
+  });
+  updateModelUi();
+  chrome.runtime.sendMessage({ type: 'ollamaModels' }).then((r) => {
+    installed = r?.models ?? null;
+    mtFillModels($('ollamaModel'), installed, settings.ollamaModel);
+    updateModelUi();
+    if (lastHealth !== undefined) showHealth(lastHealth);
+  });
 
   function show(state) {
     $('toggle').textContent = state.enabled ? '還原原圖' : '翻譯此頁';
@@ -58,19 +92,18 @@ async function toTab(tabId, message) {
   $('options').addEventListener('click', (e) => { e.preventDefault(); chrome.runtime.openOptionsPage(); });
 
   function showHealth(health) {
+    lastHealth = health;
     $('serverDot').className = 'dot ' + (health?.ok ? 'ok' : 'bad');
     $('serverText').textContent = health?.ok
       ? `本機伺服器已連線（${health.gpu ? 'GPU' : 'CPU'}）`
       : '本機伺服器未啟動';
     $('startServer').hidden = !!health?.ok;
     $('stopServer').hidden = !health?.ok;
+    // Whether the chosen model is installed is shown under the model picker instead.
     const ol = health?.ollama;
-    const hasModel = ol?.models?.some((m) => m === settings.ollamaModel || m.startsWith(settings.ollamaModel + ':'));
-    $('ollamaDot').className = 'dot ' + (ol?.running && hasModel ? 'ok' : 'bad');
-    $('ollamaText').textContent = !health?.ok ? 'Ollama：未知'
-      : !ol.running ? 'Ollama 未啟動'
-      : hasModel ? `Ollama 就緒（${settings.ollamaModel}）`
-      : `Ollama 缺少模型 ${settings.ollamaModel}`;
+    const running = ol?.running || installed !== null;
+    $('ollamaDot').className = 'dot ' + (running ? 'ok' : 'bad');
+    $('ollamaText').textContent = running ? 'Ollama 執行中' : health?.ok ? 'Ollama 未啟動' : 'Ollama：未知';
   }
 
   const getHealth = async () => (await chrome.runtime.sendMessage({ type: 'health' })).health;

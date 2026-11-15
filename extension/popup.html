@@ -14,7 +14,8 @@
     .actions button { flex: 1; }
     .statuses { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); display: grid; gap: 4px; }
     #startServer, #stopServer { margin: 4px 0 2px; }
-    #startHint { margin: 0; }
+    #startHint, #modelHint { margin: 0; }
+    #ollamaModel { max-width: 185px; }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -43,6 +44,11 @@
       <option value="ollama">Ollama（本機 LLM）</option>
     </select>
   </label>
+  <label class="row" id="modelRow" hidden>
+    <span>模型</span>
+    <select id="ollamaModel"></select>
+  </label>
+  <p class="hint" id="modelHint" hidden></p>
 
   <div class="actions">
     <button id="shot">截圖模式 <kbd>Alt+S</kbd></button>

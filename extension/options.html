@@ -27,7 +27,10 @@
       <option value="ollama">Ollama（本機 LLM，完全離線）</option>
     </select>
   </label>
-  <label class="row"><span>Ollama 模型</span><input type="text" id="ollamaModel" spellcheck="false"></label>
+  <label class="row"><span>Ollama 模型</span><select id="ollamaModel"></select></label>
+  <label class="row" id="customRow" hidden><span>自訂模型名稱</span>
+    <input type="text" id="customModel" spellcheck="false" placeholder="例如 gemma4:e4b"></label>
+  <p class="hint" id="modelHint" hidden></p>
   <label class="row"><span>Ollama 位址</span><input type="text" id="ollamaUrl" spellcheck="false"></label>
   <label class="row"><span>本機伺服器位址</span><input type="text" id="serverUrl" spellcheck="false"></label>
   <div class="status"><span class="dot" id="dot"></span><span id="statusText">檢查連線…</span></div>

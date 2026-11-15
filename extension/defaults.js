@@ -24,6 +24,36 @@ const MT_TARGET_LANGS = {
   vi: 'Tiếng Việt', th: 'ไทย', ar: 'العربية',
 };
 
+// Ollama models with a friendly label; any other installed model is listed under its own name.
+const MT_KNOWN_MODELS = {
+  'killgfat/sakura-7b-qwen2.5-v1.0': 'Sakura 7B（日翻中）',
+  'qwen3.5:9b': 'Qwen3.5 9B（多語）',
+  'qwen2.5:7b': 'Qwen2.5 7B（最快）',
+};
+const MT_CUSTOM_MODEL = '__custom__';
+
+// Ollama reports "name:latest" for untagged pulls; settings store the short form.
+const mtModelKey = (name) => name.replace(/:latest$/, '');
+
+// Fills a <select> with installed + known models. `installed` is null when Ollama could not be
+// asked, in which case nothing is marked as missing.
+function mtFillModels(select, installed, current, { custom = false } = {}) {
+  const have = installed ? new Set(installed.map(mtModelKey)) : null;
+  const names = [...new Set([...Object.keys(MT_KNOWN_MODELS), ...(have || []), current].filter(Boolean))];
+  names.sort((a, b) => {
+    const ka = a in MT_KNOWN_MODELS ? 0 : 1, kb = b in MT_KNOWN_MODELS ? 0 : 1;
+    return ka - kb || (ka ? a.localeCompare(b) : 0);
+  });
+  select.replaceChildren();
+  for (const name of names) {
+    let label = MT_KNOWN_MODELS[name] || name;
+    if (have && !have.has(mtModelKey(name))) label += '（未安裝）';
+    select.add(new Option(label, name));
+  }
+  if (custom) select.add(new Option('其他（自行輸入）…', MT_CUSTOM_MODEL));
+  select.value = current;
+}
+
 function mtGetSettings() {
   return chrome.storage.local.get(MT_DEFAULTS);
 }
