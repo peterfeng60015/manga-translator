@@ -72,6 +72,9 @@ async def ollama(texts: list[str], src: str, tgt: str, url: str, model: str) -> 
     if tgt == "zh-TW":
         system += " Write in Traditional Chinese characters (繁體字) with Taiwan wording; never use Simplified characters."
     lines = [texts[i] for i in idx]
+    if "sakura" in model.lower():
+        out = await _sakura(lines, src, tgt, url, model)
+        return _place(texts, idx, out, tgt)
     async with httpx.AsyncClient(timeout=180) as client:
         out = await _ollama_chat(client, url, model, system, lines)
         if len(out) != len(lines):
@@ -82,10 +85,62 @@ async def ollama(texts: list[str], src: str, tgt: str, url: str, model: str) -> 
             for line in lines:
                 one = await _ollama_chat(client, url, model, system, [line], context=page)
                 out.append(" ".join(one))
+    return _place(texts, idx, out, tgt)
+
+
+def _place(texts: list[str], idx: list[int], out: list[str], tgt: str) -> list[str]:
     result = [""] * len(texts)
     for i, t in zip(idx, out):
         result[i] = _to_traditional(str(t).strip()) if tgt == "zh-TW" else str(t).strip()
     return result
+
+
+# SakuraLLM (https://github.com/SakuraLLM/SakuraLLM) is fine-tuned on one fixed prompt and
+# plain newline-separated text, so it gets its own path instead of the generic JSON prompt.
+SAKURA_SYSTEM = "你是一个轻小说翻译模型，可以流畅通顺地以日本轻小说的风格将日文翻译成简体中文，并联系上下文正确使用人称代词，不擅自添加原文中没有的代词。"
+SAKURA_USER = "将下面的日文文本翻译成中文："
+SAKURA_OPTIONS = {"temperature": 0.1, "top_p": 0.3, "frequency_penalty": 0.1, "num_predict": 1024}
+
+
+async def _sakura(lines: list[str], src: str, tgt: str, url: str, model: str) -> list[str]:
+    if src != "ja" or not tgt.startswith("zh"):
+        raise TranslateError("Sakura 模型只支援日文翻譯成中文，請改用其他模型或 Google 翻譯")
+    # One source line per output line. Japanese has no word spaces, so any whitespace is OCR
+    # noise that Sakura would otherwise copy into the translation.
+    clean = [re.sub(r"\s+", "", l) for l in lines]
+
+    async def ask(client, text: str) -> list[str]:
+        # Community Ollama builds of Sakura often ship a bare "{{ .Prompt }}" template, which
+        # drops the system message in /api/chat. Build the ChatML prompt ourselves instead.
+        prompt = (
+            f"<|im_start|>system\n{SAKURA_SYSTEM}<|im_end|>\n"
+            f"<|im_start|>user\n{SAKURA_USER}{text}<|im_end|>\n"
+            "<|im_start|>assistant\n"
+        )
+        body = {
+            "model": model,
+            "stream": False,
+            "raw": True,
+            "prompt": prompt,
+            "options": {**SAKURA_OPTIONS, "stop": ["<|im_end|>", "<|im_start|>"]},
+        }
+        try:
+            r = await client.post(url.rstrip("/") + "/api/generate", json=body)
+        except httpx.HTTPError as e:
+            raise TranslateError(f"連不上 Ollama（{url}），請確認 Ollama 已啟動: {e}") from e
+        if r.status_code == 404:
+            raise TranslateError(f"Ollama 沒有模型「{model}」，請先執行 ollama pull {model}")
+        if r.status_code != 200:
+            raise TranslateError(f"Ollama 回應 HTTP {r.status_code}: {r.text[:200]}")
+        content = r.json().get("response", "")
+        return [l.strip() for l in content.strip().split("\n") if l.strip()]
+
+    async with httpx.AsyncClient(timeout=180) as client:
+        out = await ask(client, "\n".join(clean))
+        if len(out) != len(clean):
+            # Line count drifted: translate line by line instead (loses some page context).
+            out = [" ".join(await ask(client, line)) for line in clean]
+    return out
 
 
 async def _ollama_chat(client, url, model, system, lines, context=None) -> list[str]:

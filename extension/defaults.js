@@ -5,7 +5,7 @@ const MT_DEFAULTS = {
   targetLang: 'zh-TW',
   engine: 'google', // google | ollama
   ollamaUrl: 'http://127.0.0.1:11434',
-  ollamaModel: 'qwen2.5:7b',
+  ollamaModel: 'killgfat/sakura-7b-qwen2.5-v1.0',
   fontFamily: '"Microsoft JhengHei", "Noto Sans TC", "PingFang TC", sans-serif',
   fontScale: 1,
   bold: true,

@@ -60,7 +60,7 @@ class TranslateRequest(BaseModel):
     target_lang: str = "zh-TW"
     engine: str = "google"          # google | ollama
     ollama_url: str = "http://127.0.0.1:11434"
-    ollama_model: str = "qwen2.5:7b"
+    ollama_model: str = "killgfat/sakura-7b-qwen2.5-v1.0"
 
 
 async def load_image(req: TranslateRequest) -> bytes:
